@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi tiendita- Administrador</title>
+    <!-- Bootstrap 5 para diseño rápido y limpio -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Iconos de Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <!-- Navbar Superior -->
+    <nav class="navbar navbar-dark bg-dark mb-4 shadow">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1"><i class="bi bi-shop me-2"></i>Mi tiendita</span>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        
+        <!-- ================= SECCIÓN 1: TARJETAS DE REPORTES ================= -->
+        <div class="row text-center mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card bg-success text-white p-3 shadow-sm border-0">
+                    <h6 class="text-uppercase opacity-75">Ventas del Día</h6>
+                    <h2 id="ventasDia" class="fw-bold">$0.00</h2>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card bg-primary text-white p-3 shadow-sm border-0">
+                    <h6 class="text-uppercase opacity-75">Ganancia Neta (Mes)</h6>
+                    <h2 id="gananciaMes" class="fw-bold">$0.00</h2>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card bg-danger text-white p-3 shadow-sm border-0">
+                    <h6 class="text-uppercase opacity-75">Productos en Alerta</h6>
+                    <h2 id="productosAlerta" class="fw-bold">0</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- ================= SECCIÓN 2: REGISTRAR VENTA REAL ================= -->
+            <div class="col-lg-4 mb-4">
+                <div class="card p-4 shadow-sm h-100 border-0">
+                    <h4 class="mb-3 text-secondary"><i class="bi bi-cart-plus me-2"></i>Registrar Venta</h4>
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Producto</label>
+                        <select id="selectProductoVenta" class="form-select">
+                            <option value="">-- Elige un producto --</option>
+                            <!-- Los productos de la base de datos se cargarán aquí con JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad vendida</label>
+                        <input type="number" id="cantidadVenta" class="form-control" min="1" value="1">
+                    </div>
+                    <button class="btn btn-success w-100 py-2 fw-bold" onclick="alert('¡Próximamente guardará la venta!')">
+                        <i class="bi bi-check-circle me-1"></i> Confirmar Venta
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= SECCIÓN 3: GRÁFICA MENSUAL ================= -->
+            <div class="col-lg-8 mb-4">
+                <div class="card p-4 shadow-sm h-100 border-0">
+                    <h4 class="mb-3 text-secondary"><i class="bi bi-graph-up me-2"></i>Historial de Ventas</h4>
+                    <div style="position: relative; height:200px;">
+                        <canvas id="graficaVentas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SECCIÓN 4: TABLA DE INVENTARIO ================= -->
+        <div class="card p-4 shadow-sm border-0 mt-2">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <h3 class="text-dark m-0"><i class="bi bi-box-seam me-2"></i>Inventario de Productos</h3>
+                <!-- Botón para abrir Ventana de Agregar Producto -->
+                <button class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+                    <i class="bi bi-plus-circle me-1"></i> Agregar Producto
+                </button>
+            </div>
+
+            <!-- Buscador y Filtros -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-8">
+                    <input type="text" id="buscador" class="form-control" placeholder="🔍 Buscar producto por nombre...">
+                </div>
+                <div class="col-md-4">
+                    <select id="filtroCategoria" class="form-select">
+                        <option value="">Todas las categorías</option>
+                        <option value="Abarrotes">Abarrotes</option>
+                        <option value="Lácteos">Lácteos</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Limpieza">Limpieza</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tabla Informativa -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Costo (Compra)</th>
+                            <th>Precio (Venta)</th>
+                            <th>Stock</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProductos">
+                        <!-- Filas de ejemplo estáticas (Luego las controlará JavaScript) -->
+                        <tr>
+                            <td><b>Aceite 1L</b></td>
+                            <td><span class="badge bg-secondary">Abarrotes</span></td>
+                            <td>$32.00</td>
+                            <td>$40.00</td>
+                            <td>15 pzas</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-warning me-1" title="Editar"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-danger me-1" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                <button class="btn btn-sm btn-info text-white fw-bold" data-bs-toggle="modal" data-bs-target="#modalReabastecer" title="Reabastecer"><i class="bi bi-truck me-1"></i> Reabastecer</button>
+                            </td>
+                        </tr>
+                        <!-- Fila en Alerta de Stock Bajo (< 3) -->
+                        <tr class="table-danger text-danger">
+                            <td><b>Leche Entera 1L</b></td>
+                            <td><span class="badge bg-secondary">Lácteos</span></td>
+                            <td>$22.00</td>
+                            <td>$26.50</td>
+                            <td class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i> 2 pzas</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-warning text-white me-1"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-danger me-1"><i class="bi bi-trash"></i></button>
+                                <button class="btn btn-sm btn-info text-white fw-bold" data-bs-toggle="modal" data-bs-target="#modalReabastecer"><i class="bi bi-truck me-1"></i> Reabastecer</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= VENTANA MODAL: AGREGAR PRODUCTO ================= -->
+    <div class="modal fade" id="modalAgregar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Nuevo Producto</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formAgregar">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del Producto</label>
+                            <input type="text" class="form-control" required placeholder="Ej. Coca-Cola 600ml">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
+                            <select class="form-select" required>
+                                <option value="Abarrotes">Abarrotes</option>
+                                <option value="Lácteos">Lácteos</option>
+                                <option value="Bebidas">Bebidas</option>
+                                <option value="Limpieza">Limpieza</option>
+                            </select>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Precio Compra (Costo)</label>
+                                <input type="number" class="form-control" step="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Precio Venta</label>
+                                <input type="number" class="form-control" step="0.01" required placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stock Inicial</label>
+                            <input type="number" class="form-control" required placeholder="Cantidad actual">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Guardar Producto</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VENTANA MODAL: REABASTECER PRODUCTO ================= -->
+    <div class="modal fade" id="modalReabastecer" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Reabastecer</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formReabastecer">
+                        <div class="mb-3">
+                            <label class="form-label">¿Cuántas piezas llegaron?</label>
+                            <input type="number" class="form-control" min="1" required placeholder="Ej. 24">
+                        </div>
+                        <button type="submit" class="btn btn-info text-white w-100 fw-bold">Aplicar Entrada</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts Esenciales: Bootstrap + Chart.js para las gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Script temporal para pintar una gráfica vacía de ejemplo
+        const ctx = document.getElementById('graficaVentas').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Día 1', 'Día 5', 'Día 10', 'Día 15', 'Día 20', 'Día 25', 'Día 30'],
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: [1200, 1900, 1500, 2500, 2200, 3000, 2800],
+                    borderColor: '#0d6efd',
+                    tension: 0.3,
+                    fill: true,
+                    backgroundColor: 'rgba(13, 110, 253, 0.05)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    </script>
+</body>
+</html>
