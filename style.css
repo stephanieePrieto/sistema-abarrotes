@@ -1,0 +1,20 @@
+/* Limitar la altura del historial para que no estire la pantalla infinitamente */
+.contenedor-historial {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e3e6f0;
+    border-radius: 4px;
+}
+
+/* Hacer que los encabezados del historial se queden fijos al hacer scroll hacia abajo */
+.contenedor-historial thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #f8f9fc;
+}
+
+/* Efecto visual suave para cuando las tarjetas o filas cambien de color */
+.card, tr {
+    transition: all 0.2s ease-in-out;
+}

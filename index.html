@@ -8,6 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Iconos de Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Vincular nuestros estilos personalizados externos -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-light">
 
@@ -43,12 +45,15 @@
         </div>
 
         <div class="row">
-            <!-- ================= SECCIÓN 2: REGISTRAR VENTA REAL ================= -->
+            <!-- ================= SECCIÓN 2: REGISTRAR VENTA REAL (CON BUSCADOR RAPIDO) ================= -->
             <div class="col-lg-4 mb-4">
                 <div class="card p-4 shadow-sm h-100 border-0">
                     <h4 class="mb-3 text-secondary"><i class="bi bi-cart-plus me-2"></i>Registrar Venta</h4>
+                    <div class="mb-2">
+                        <label class="form-label mb-1">🔍 Buscar Producto para Venta</label>
+                        <input type="text" id="buscadorVenta" class="form-control form-control-sm mb-2" placeholder="Escribe el nombre para filtrar...">
+                    </div>
                     <div class="mb-3">
-                        <label class="form-label">Seleccionar Producto</label>
                         <select id="selectProductoVenta" class="form-select">
                             <option value="">-- Elige un producto --</option>
                         </select>
@@ -86,7 +91,7 @@
             <!-- Buscador y Filtros -->
             <div class="row g-2 mb-3">
                 <div class="col-md-8">
-                    <input type="text" id="buscador" class="form-control" placeholder="🔍 Buscar producto por nombre...">
+                    <input type="text" id="buscador" class="form-control" placeholder="🔍 Buscar producto por nombre en inventario...">
                 </div>
                 <div class="col-md-4">
                     <select id="filtroCategoria" class="form-select">
@@ -113,7 +118,31 @@
                         </tr>
                     </thead>
                     <tbody id="tablaProductos">
-                        <!-- Se controla desde JS -->
+                        <!-- Se controla desde app.js -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= SECCIÓN 5: HISTORIAL DETALLADO DE TRANSACCIONES ================= -->
+        <div class="card p-4 shadow-sm border-0 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="text-dark m-0"><i class="bi bi-clock-history me-2"></i>Historial del Día y Movimientos</h3>
+                <button class="btn btn-sm btn-outline-secondary" onclick="cargarHistorial()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+            </div>
+            <div class="table-responsive contenedor-historial">
+                <table class="table table-sm table-striped table-hover align-middle">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>Tipo de Movimiento</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Total Dinero</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaHistorial">
+                        <!-- Se controla desde app.js -->
                     </tbody>
                 </table>
             </div>
@@ -188,365 +217,12 @@
         </div>
     </div>
 
-    <!-- Scripts Esenciales -->
+    <!-- Scripts CDN Esenciales -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script>
-        // ================= CONFIGURACIÓN DE SUPABASE =================
-        const SUPABASE_URL = "https://rcglovsyrzrdjecbhgmf.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZ2xvdnN5cnpyZGplY2JoZ21mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNTk5MjksImV4cCI6MjA5ODkzNTkyOX0.Q2YAqZu2sxNnERXw7LPOzDttnZ8dgStinyWafDK--y4";
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // Variables de control global
-        let todosLosProductos = [];
-        let graficaInstancia = null;
-
-        // ================= INICIALIZACIÓN DE LA APP =================
-        window.addEventListener('DOMContentLoaded', () => {
-            console.log("Conexión con Supabase configurada correctamente.");
-            inicializarGrafica();
-            cargarProductos(); 
-            cargarFinanzas(); // Nueva función de cálculo financiero
-            configurarBuscadores();
-        });
-
-        // ================= FUNCION: CARGAR PRODUCTOS DESDE BASE DE DATOS =================
-        async function cargarProductos() {
-            const { data, error } = await supabaseClient
-                .from('productos')
-                .select('*')
-                .order('nombre', { ascending: true });
-
-            if (error) {
-                console.error("Error al cargar productos:", error);
-                return;
-            }
-
-            todosLosProductos = data;
-            renderizarTabla(todosLosProductos);
-            actualizarSelectVentas(todosLosProductos);
-            actualizarTarjetasReporte(todosLosProductos);
-        }
-
-        // ================= FUNCION: CARGAR FINANZAS Y REPORTES REALES =================
-        async function cargarFinanzas() {
-            // Obtener fechas locales en formato YYYY-MM-DD
-            const hoy = new Date().toISOString().split('T')[0];
-            const primerDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-
-            // 1. Obtener ventas de hoy
-            const { data: ventasHoy } = await supabaseClient
-                .from('ingresos')
-                .select('total')
-                .eq('fecha', hoy);
-
-            // 2. Obtener todas las ventas del mes en curso
-            const { data: ventasMes } = await supabaseClient
-                .from('ingresos')
-                .select('total, fecha')
-                .gte('fecha', primerDiaMes);
-
-            // 3. Obtener todos los egresos (reabastecimientos) del mes
-            const { data: egresosMes } = await supabaseClient
-                .from('egresos')
-                .select('total')
-                .gte('fecha', primerDiaMes);
-
-            // Calcular totales sumando los arreglos
-            const totalVentasDia = (ventasHoy || []).reduce((sum, item) => sum + parseFloat(item.total), 0);
-            const totalVentasMes = (ventasMes || []).reduce((sum, item) => sum + parseFloat(item.total), 0);
-            const totalEgresosMes = (egresosMes || []).reduce((sum, item) => sum + parseFloat(item.total), 0);
-            
-            // Ganancia Neta = Lo vendido menos lo que gastó surtiendo mercancía
-            const gananciaNetaMes = totalVentasMes - totalEgresosMes;
-
-            // Inyectar datos en las tarjetas del Dashboard
-            document.getElementById('ventasDia').innerText = `$${totalVentasDia.toFixed(2)}`;
-            document.getElementById('gananciaMes').innerText = `$${gananciaNetaMes.toFixed(2)}`;
-
-            // Actualizar la gráfica con las ventas mensuales reales
-            actualizarGraficaVentasReal(ventasMes || []);
-        }
-
-        // ================= FUNCION: ACTUALIZAR GRAFICA CON DATOS REALES =================
-        function actualizarGraficaVentasReal(ventas) {
-            // Agrupar los totales por fecha
-            const ventasPorDia = {};
-            ventas.forEach(v => {
-                ventasPorDia[v.fecha] = (ventasPorDia[v.fecha] || 0) + parseFloat(v.total);
-            });
-
-            const fechasOrdenadas = Object.keys(ventasPorDia).sort();
-            const montosOrdenados = fechasOrdenadas.map(f => ventasPorDia[f]);
-
-            if (fechasOrdenadas.length === 0) {
-                graficaInstancia.data.labels = ['Sin ventas'];
-                graficaInstancia.data.datasets[0].data = [0];
-            } else {
-                // Cambiar formato YYYY-MM-DD a DD/MM para que quepa bien en la gráfica
-                const labelsAmigables = fechasOrdenadas.map(f => {
-                    const parts = f.split('-');
-                    return `${parts[2]}/${parts[1]}`;
-                });
-                graficaInstancia.data.labels = labelsAmigables;
-                graficaInstancia.data.datasets[0].data = montosOrdenados;
-            }
-            graficaInstancia.update(); // Refrescar gráfica en pantalla
-        }
-
-        // ================= FUNCION: DIBUJAR FILAS EN LA TABLA =================
-        function renderizarTabla(listaProductos) {
-            const tbody = document.getElementById('tablaProductos');
-            tbody.innerHTML = ''; 
-
-            if (listaProductos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">No hay productos registrados</td></tr>`;
-                return;
-            }
-
-            listaProductos.forEach(prod => {
-                const esStockBajo = prod.stock < 3;
-                const claseFila = esStockBajo ? 'table-danger text-danger' : '';
-                const alertaIcono = esStockBajo ? '<i class="bi bi-exclamation-triangle-fill me-1"></i>' : '';
-
-                tbody.innerHTML += `
-                    <tr class="${claseFila}">
-                        <td><b>${prod.nombre}</b></td>
-                        <td><span class="badge bg-secondary">${prod.categoria}</span></td>
-                        <td>$${parseFloat(prod.precio_compra).toFixed(2)}</td>
-                        <td>$${parseFloat(prod.precio_venta).toFixed(2)}</td>
-                        <td class="${esStockBajo ? 'fw-bold' : ''}">${alertaIcono}${prod.stock} pzas</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm ${esStockBajo ? 'btn-danger' : 'btn-warning text-white'} me-1" onclick="cargarDatosEditar(${prod.id})" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger me-1" onclick="eliminarProducto(${prod.id}, '${prod.nombre}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-                            <button class="btn btn-sm btn-info text-white fw-bold" onclick="abrirModalReabastecer(${prod.id})" title="Reabastecer"><i class="bi bi-truck me-1"></i> Reabastecer</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        // ================= FUNCION: CREAR O EDITAR PRODUCTO =================
-        async function guardarProducto(event) {
-            event.preventDefault(); 
-
-            const id = document.getElementById('productoId').value;
-            const nombre = document.getElementById('pNombre').value;
-            const categoria = document.getElementById('pCategoria').value;
-            const precio_compra = parseFloat(document.getElementById('pCosto').value);
-            const precio_venta = parseFloat(document.getElementById('pPrecio').value);
-            const stock = parseInt(document.getElementById('pStock').value);
-
-            let resultado;
-
-            if (id) {
-                resultado = await supabaseClient
-                    .from('productos')
-                    .update({ nombre, categoria, precio_compra, precio_venta, stock })
-                    .eq('id', id);
-            } else {
-                resultado = await supabaseClient
-                    .from('productos')
-                    .insert([{ nombre, categoria, precio_compra, precio_venta, stock }]);
-            }
-
-            if (resultado.error) {
-                alert("Hubo un error al guardar el producto.");
-            } else {
-                alert("¡Producto guardado con éxito!");
-                document.getElementById('formAgregar').reset();
-                document.getElementById('productoId').value = '';
-                document.getElementById('modalAgregarTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nuevo Producto';
-                
-                bootstrap.Modal.getInstance(document.getElementById('modalAgregar')).hide();
-                cargarProductos();
-                cargarFinanzas(); // Recargar finanzas al cambiar stock o costos
-            }
-        }
-
-        // ================= FUNCION: CARGAR DATOS PARA EDITAR =================
-        function cargarDatosEditar(id) {
-            const prod = todosLosProductos.find(p => p.id === id);
-            if (!prod) return;
-
-            document.getElementById('productoId').value = prod.id;
-            document.getElementById('pNombre').value = prod.nombre;
-            document.getElementById('pCategoria').value = prod.categoria;
-            document.getElementById('pCosto').value = prod.precio_compra;
-            document.getElementById('pPrecio').value = prod.precio_venta;
-            document.getElementById('pStock').value = prod.stock;
-
-            document.getElementById('modalAgregarTitle').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Producto';
-
-            const modal = new bootstrap.Modal(document.getElementById('modalAgregar'));
-            modal.show();
-        }
-
-        // ================= FUNCION: ELIMINAR PRODUCTO =================
-        async function eliminarProducto(id, nombre) {
-            const confirmar = confirm(`¿Estás seguro de que deseas eliminar "${nombre}"?\nEsta acción no se puede deshacer.`);
-            if (!confirmar) return;
-
-            const { error } = await supabaseClient
-                .from('productos')
-                .delete()
-                .eq('id', id);
-
-            if (error) {
-                alert("No se pudo eliminar el producto.");
-            } else {
-                alert("Producto eliminado correctamente.");
-                cargarProductos();
-                cargarFinanzas();
-            }
-        }
-
-        // ================= FUNCION: REABASTECER (AUTOMATIZACIÓN DE EGRESO) =================
-        function abrirModalReabastecer(id) {
-            document.getElementById('reabastecerProductoId').value = id;
-            document.getElementById('cantidadReabastecer').value = '';
-            const modal = new bootstrap.Modal(document.getElementById('modalReabastecer'));
-            modal.show();
-        }
-
-        async function aplicarReabastecimiento(event) {
-            event.preventDefault();
-            const id = parseInt(document.getElementById('reabastecerProductoId').value);
-            const cantidadNueva = parseInt(document.getElementById('cantidadReabastecer').value);
-
-            const prod = todosLosProductos.find(p => p.id === id);
-            if (!prod) return;
-
-            const nuevoStock = prod.stock + cantidadNueva;
-            const gastoTotal = cantidadNueva * prod.precio_compra;
-
-            const updateRes = await supabaseClient
-                .from('productos')
-                .update({ stock: nuevoStock })
-                .eq('id', id);
-
-            const egresoRes = await supabaseClient
-                .from('egresos')
-                .insert([{ 
-                    producto_id: id, 
-                    producto_nombre: prod.nombre, 
-                    cantidad: cantidadNueva, 
-                    total: gastoTotal 
-                }]);
-
-            if (updateRes.error || egresoRes.error) {
-                alert("Ocurrió un error al procesar el reabastecimiento.");
-            } else {
-                alert(`¡Entrada aplicada!\nSe sumaron ${cantidadNueva} pzas a "${prod.nombre}".\nEgreso registrado: $${gastoTotal.toFixed(2)}`);
-                bootstrap.Modal.getInstance(document.getElementById('modalReabastecer')).hide();
-                cargarProductos();
-                cargarFinanzas(); // Actualiza el dinero invertido al instante
-            }
-        }
-
-        // ================= FUNCION: REGISTRAR VENTA (INGRESOS) =================
-        async function registrarVenta() {
-            const id = parseInt(document.getElementById('selectProductoVenta').value);
-            const cantidad = parseInt(document.getElementById('cantidadVenta').value);
-
-            if (!id || cantidad <= 0) {
-                alert("Por favor, selecciona un producto y una cantidad válida.");
-                return;
-            }
-
-            const prod = todosLosProductos.find(p => p.id === id);
-            if (!prod) return;
-
-            if (prod.stock < cantidad) {
-                alert(`No hay suficiente stock. Solo te quedan ${prod.stock} piezas de "${prod.nombre}".`);
-                return;
-            }
-
-            const nuevoStock = prod.stock - cantidad;
-            const totalVenta = cantidad * prod.precio_venta;
-
-            const updateRes = await supabaseClient
-                .from('productos')
-                .update({ stock: nuevoStock })
-                .eq('id', id);
-
-            const ingresoRes = await supabaseClient
-                .from('ingresos')
-                .insert([{ 
-                    producto_id: id, 
-                    producto_nombre: prod.nombre, 
-                    cantidad: cantidad, 
-                    total: totalVenta 
-                }]);
-
-            if (updateRes.error || ingresoRes.error) {
-                alert("Hubo un error al procesar la venta.");
-            } else {
-                alert(`¡Venta procesada con éxito!\nTotal cobrado: $${totalVenta.toFixed(2)}`);
-                document.getElementById('selectProductoVenta').value = '';
-                document.getElementById('cantidadVenta').value = '1';
-                cargarProductos();
-                cargarFinanzas(); // Actualiza las ventas y ganancias en pantalla
-            }
-        }
-
-        // ================= CONFIGURAR BUSCADOR Y FILTROS =================
-        function configurarBuscadores() {
-            const buscador = document.getElementById('buscador');
-            const filtro = document.getElementById('filtroCategoria');
-
-            const procesarFiltros = () => {
-                const texto = buscador.value.toLowerCase();
-                const catSeleccionada = filtro.value;
-
-                const productosFiltrados = todosLosProductos.filter(prod => {
-                    const cumpleNombre = prod.nombre.toLowerCase().includes(texto);
-                    const cumpleCategoria = catSeleccionada === "" || prod.categoria === catSeleccionada;
-                    return cumpleNombre && cumpleCategoria;
-                });
-
-                renderizarTabla(productosFiltrados);
-            };
-
-            buscador.addEventListener('input', procesarFiltros);
-            filtro.addEventListener('change', procesarFiltros);
-        }
-
-        // ================= FUNCIONES AUXILIARES INTERFAZ =================
-        function actualizarSelectVentas(listaProductos) {
-            const select = document.getElementById('selectProductoVenta');
-            select.innerHTML = '<option value="">-- Elige un producto --</option>';
-            listaProductos.forEach(prod => {
-                select.innerHTML += `<option value="${prod.id}">${prod.nombre} ($${parseFloat(prod.precio_venta).toFixed(2)})</option>`;
-            });
-        }
-
-        function actualizarTarjetasReporte(listaProductos) {
-            const alertas = listaProductos.filter(prod => prod.stock < 3).length;
-            document.getElementById('productosAlerta').innerText = alertas;
-        }
-
-        function inicializarGrafica() {
-            const ctx = document.getElementById('graficaVentas').getContext('2d');
-            graficaInstancia = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Sin datos'],
-                    datasets: [{
-                        label: 'Ventas por Día ($)',
-                        data: [0],
-                        borderColor: '#0d6efd',
-                        tension: 0.2,
-                        fill: true,
-                        backgroundColor: 'rgba(13, 110, 253, 0.05)'
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-    </script>
+    
+    <!-- Vincular nuestra lógica Javascript externa -->
+    <script src="app.js"></script>
 </body>
 </html>
