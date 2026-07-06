@@ -236,7 +236,6 @@ async function registrarVenta() {
 }
 
 // ================= CONFIGURAR LOS FILTROS Y EL NUEVO BUSCADOR DE VENTAS =================
-// ================= CONFIGURAR LOS FILTROS Y EL NUEVO BUSCADOR DE VENTAS =================
 function configurarBuscadores() {
     const buscadorInv = document.getElementById('buscador');
     const filtroCat = document.getElementById('filtroCategoria');
@@ -255,7 +254,7 @@ function configurarBuscadores() {
         renderizarTabla(filtered);
     };
 
-    // CORREGIDO: Lógica para filtrar y forzar la actualización del menú de cobro
+    // Lógica para filtrar y actualizar el menú de cobro
     const procesarBuscadorVenta = () => {
         const texto = buscadorVenta.value.toLowerCase();
         
@@ -265,23 +264,11 @@ function configurarBuscadores() {
         // Volver a pintar el select con los productos filtrados
         actualizarSelectVentas(filtrados);
 
-        // CORRECCIÓN CLAVE: Si hay resultados, autoseleccionar el primero para agilizar la venta
+        // Si hay resultados, autoseleccionar el primero para agilizar la venta
         const select = document.getElementById('selectProductoVenta');
         if (filtrados.length > 0 && texto !== "") {
             select.value = filtrados[0].id;
         }
-    };
-
-    buscadorInv.addEventListener('input', procesarFiltrosInventario);
-    filtroCat.addEventListener('change', procesarFiltrosInventario);
-    buscadorVenta.addEventListener('input', procesarBuscadorVenta);
-}
-
-    // NUEVO: Lógica para filtrar el selector de cobro dinámicamente
-    const procesarBuscadorVenta = () => {
-        const texto = buscadorVenta.value.toLowerCase();
-        const filtrados = todosLosProductos.filter(p => p.nombre.toLowerCase().includes(texto));
-        actualizarSelectVentas(filtrados);
     };
 
     buscadorInv.addEventListener('input', procesarFiltrosInventario);
@@ -294,7 +281,7 @@ async function cargarHistorial() {
     const tbody = document.getElementById('tablaHistorial');
     tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Cargando movimientos...</td></tr>`;
 
-    // 1. Obtener los últimos 20 ingresos y egresos
+    // Obtener los últimos 20 ingresos y egresos
     const { data: listaIngresos } = await supabaseClient.from('ingresos').select('*').order('created_at', { ascending: false }).limit(20);
     const { data: listaEgresos } = await supabaseClient.from('egresos').select('*').order('created_at', { ascending: false }).limit(20);
 
@@ -407,6 +394,7 @@ function actualizarTarjetasReporte(listaProductos) {
     document.getElementById('productosAlerta').innerText = alertas;
 }
 
+// ================= INICIALIZAR GRAFICA DESDE CERO =================
 function inicializarGrafica() {
     const ctx = document.getElementById('graficaVentas').getContext('2d');
     graficaInstancia = new Chart(ctx, {
