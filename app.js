@@ -236,6 +236,7 @@ async function registrarVenta() {
 }
 
 // ================= CONFIGURAR LOS FILTROS Y EL NUEVO BUSCADOR DE VENTAS =================
+// ================= CONFIGURAR LOS FILTROS Y EL NUEVO BUSCADOR DE VENTAS =================
 function configurarBuscadores() {
     const buscadorInv = document.getElementById('buscador');
     const filtroCat = document.getElementById('filtroCategoria');
@@ -253,6 +254,28 @@ function configurarBuscadores() {
         });
         renderizarTabla(filtered);
     };
+
+    // CORREGIDO: Lógica para filtrar y forzar la actualización del menú de cobro
+    const procesarBuscadorVenta = () => {
+        const texto = buscadorVenta.value.toLowerCase();
+        
+        // Filtrar productos por nombre
+        const filtrados = todosLosProductos.filter(p => p.nombre.toLowerCase().includes(texto));
+        
+        // Volver a pintar el select con los productos filtrados
+        actualizarSelectVentas(filtrados);
+
+        // CORRECCIÓN CLAVE: Si hay resultados, autoseleccionar el primero para agilizar la venta
+        const select = document.getElementById('selectProductoVenta');
+        if (filtrados.length > 0 && texto !== "") {
+            select.value = filtrados[0].id;
+        }
+    };
+
+    buscadorInv.addEventListener('input', procesarFiltrosInventario);
+    filtroCat.addEventListener('change', procesarFiltrosInventario);
+    buscadorVenta.addEventListener('input', procesarBuscadorVenta);
+}
 
     // NUEVO: Lógica para filtrar el selector de cobro dinámicamente
     const procesarBuscadorVenta = () => {
