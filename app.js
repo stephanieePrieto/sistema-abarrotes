@@ -7,16 +7,32 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Variables globales para la memoria del sistema
 let todosLosProductos = [];
 let graficaInstancia = null;
+let seccionActiva = "Abarrotes"; // Puede ser "Abarrotes" o "Nieves y Snacks"
 
 // ================= INICIALIZACIÓN DE LA APLICACIÓN =================
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("Conexión con Supabase configurada correctamente.");
+    console.log("Conexión activa.");
     inicializarGrafica();
     cargarProductos(); 
     cargarFinanzas(); 
     configurarBuscadores();
-    cargarHistorial(); // Trae las bitácoras al abrir el sistema
+    cargarHistorial(); 
 });
+
+// Cambiar dinámicamente de sección usando las pestañas
+function cambiarSeccionFiltro(nuevaSeccion) {
+    seccionActiva = nuevaSeccion;
+    const titulo = document.getElementById('tituloInventario');
+    
+    if(seccionActiva === "Abarrotes") {
+        titulo.innerHTML = '<i class="bi bi-box-seam me-2"></i>Inventario - General / Abarrotes';
+    } else {
+        titulo.innerHTML = '<i class="bi bi-ice-cream me-2"></i>Inventario - Nieves, Paletas y Snacks';
+    }
+    
+    // Forzar rediseño de elementos con base a la sección activa
+    procesarFiltrosEfectuados();
+}
 
 // ================= TRAER PRODUCTOS DESDE BASE DE DATOS =================
 async function cargarProductos() {
@@ -31,9 +47,47 @@ async function cargarProductos() {
     }
 
     todosLosProductos = data;
-    renderizarTabla(todosLosProductos);
-    actualizarSelectVentas(todosLosProductos);
+    procesarFiltrosEfectuados();
     actualizarTarjetasReporte(todosLosProductos);
+}
+
+// Filtra los productos en memoria según la pestaña activa y lo que busque el usuario
+function procesarFiltrosEfectuados() {
+    const textoBuscador = document.getElementById('buscador').value.toLowerCase();
+    const textoBuscadorVenta = document.getElementById('buscadorVenta').value.toLowerCase();
+
+    // Clasificar qué categorías pertenecen a "Nieves y Snacks"
+    const categoriasNieves = ["Nieves", "Paletas", "Snacks"];
+
+    // 1. Filtrar inventario de la tabla principal
+    const productosDeLaSeccion = todosLosProductos.filter(prod => {
+        const perteneceANieves = categoriasNieves.includes(prod.categoria);
+        if (seccionActiva === "Nieves y Snacks") {
+            return perteneceANieves && prod.nombre.toLowerCase().includes(textoBuscador);
+        } else {
+            return !perneceANieves && prod.nombre.toLowerCase().includes(textoBuscador);
+        }
+    });
+
+    // 2. Filtrar el select de ventas rápido
+    const productosVentaFiltrados = todosLosProductos.filter(prod => {
+        const perteneceANieves = categoriasNieves.includes(prod.categoria);
+        const coincideBusqueda = prod.nombre.toLowerCase().includes(textoBuscadorVenta);
+        if (seccionActiva === "Nieves y Snacks") {
+            return perteneceANieves && coincideBusqueda;
+        } else {
+            return !perneceANieves && coincideBusqueda;
+        }
+    });
+
+    renderizarTabla(productosDeLaSeccion);
+    actualizarSelectVentas(productosVentaFiltrados);
+
+    // Auto-seleccionar primer elemento en ventas si escribe algo
+    const select = document.getElementById('selectProductoVenta');
+    if (productosVentaFiltrados.length > 0 && textoBuscadorVenta !== "") {
+        select.value = productosVentaFiltrados[0].id;
+    }
 }
 
 // ================= MOSTRAR LOS PRODUCTOS EN LA TABLA =================
@@ -42,7 +96,7 @@ function renderizarTabla(listaProductos) {
     tbody.innerHTML = ''; 
 
     if (listaProductos.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">No hay productos registrados</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">No hay productos en esta sección</td></tr>`;
         return;
     }
 
@@ -93,9 +147,9 @@ async function guardarProducto(event) {
     }
 
     if (resultado.error) {
-        alert("Hubo un error al guardar el producto.");
+        alert("Hubo un error al guardar.");
     } else {
-        alert("¡Producto guardado con éxito!");
+        alert("¡Producto guardado!");
         document.getElementById('formAgregar').reset();
         document.getElementById('productoId').value = '';
         document.getElementById('modalAgregarTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nuevo Producto';
@@ -106,7 +160,6 @@ async function guardarProducto(event) {
     }
 }
 
-// ================= CARGAR DATOS AL MODAL PARA EDITAR =================
 function cargarDatosEditar(id) {
     const prod = todosLosProductos.find(p => p.id === id);
     if (!prod) return;
@@ -124,26 +177,21 @@ function cargarDatosEditar(id) {
     modal.show();
 }
 
-// ================= ELIMINAR UN PRODUCTO =================
 async function eliminarProducto(id, nombre) {
-    const confirmar = confirm(`¿Estás seguro de que deseas eliminar "${nombre}"?\nEsta acción no se puede deshacer.`);
+    const confirmar = confirm(`¿Eliminar "${nombre}"?`);
     if (!confirmar) return;
 
-    const { error } = await supabaseClient
-        .from('productos')
-        .delete()
-        .eq('id', id);
+    const { error } = await supabaseClient.from('productos').delete().eq('id', id);
 
     if (error) {
-        alert("No se pudo eliminar el producto.");
+        alert("No se pudo eliminar.");
     } else {
-        alert("Producto eliminado correctamente.");
+        alert("Producto eliminado.");
         cargarProductos();
         cargarFinanzas();
     }
 }
 
-// ================= REABASTECER (AUTOMATIZACIÓN DE EGRESOS) =================
 function abrirModalReabastecer(id) {
     document.getElementById('reabastecerProductoId').value = id;
     document.getElementById('cantidadReabastecer').value = '';
@@ -162,22 +210,16 @@ async function aplicarReabastecimiento(event) {
     const nuevoStock = prod.stock + cantidadNueva;
     const gastoTotal = cantidadNueva * prod.precio_compra;
 
-    const updateRes = await supabaseClient
-        .from('productos')
-        .update({ stock: nuevoStock })
-        .eq('id', id);
-
-    const egresoRes = await supabaseClient
-        .from('egresos')
-        .insert([{ 
-            producto_id: id, 
-            producto_nombre: prod.nombre, 
-            cantidad: cantidadNueva, 
-            total: gastoTotal 
-        }]);
+    const updateRes = await supabaseClient.from('productos').update({ stock: nuevoStock }).eq('id', id);
+    const egresoRes = await supabaseClient.from('egresos').insert([{ 
+        producto_id: id, 
+        producto_nombre: prod.nombre, 
+        cantidad: cantidadNueva, 
+        total: gastoTotal 
+    }]);
 
     if (updateRes.error || egresoRes.error) {
-        alert("Ocurrió un error al procesar el reabastecimiento.");
+        alert("Error al reabastecer.");
     } else {
         alert(`¡Entrada aplicada al inventario!`);
         bootstrap.Modal.getInstance(document.getElementById('modalReabastecer')).hide();
@@ -187,13 +229,12 @@ async function aplicarReabastecimiento(event) {
     }
 }
 
-// ================= PROCESAR VENTA (INGRESOS) =================
 async function registrarVenta() {
     const id = parseInt(document.getElementById('selectProductoVenta').value);
     const cantidad = parseInt(document.getElementById('cantidadVenta').value);
 
     if (!id || cantidad <= 0) {
-        alert("Por favor, selecciona un producto.");
+        alert("Selecciona un producto.");
         return;
     }
 
@@ -201,31 +242,25 @@ async function registrarVenta() {
     if (!prod) return;
 
     if (prod.stock < cantidad) {
-        alert(`No hay suficiente stock. Solo te quedan ${prod.stock} piezas.`);
+        alert(`Stock insuficiente. Solo quedan ${prod.stock} piezas.`);
         return;
     }
 
     const nuevoStock = prod.stock - cantidad;
     const totalVenta = cantidad * prod.precio_venta;
 
-    const updateRes = await supabaseClient
-        .from('productos')
-        .update({ stock: nuevoStock })
-        .eq('id', id);
-
-    const ingresoRes = await supabaseClient
-        .from('ingresos')
-        .insert([{ 
-            producto_id: id, 
-            producto_nombre: prod.nombre, 
-            cantidad: cantidad, 
-            total: totalVenta 
-        }]);
+    const updateRes = await supabaseClient.from('productos').update({ stock: nuevoStock }).eq('id', id);
+    const ingresoRes = await supabaseClient.from('ingresos').insert([{ 
+        producto_id: id, 
+        producto_nombre: prod.nombre, 
+        cantidad: cantidad, 
+        total: totalVenta 
+    }]);
 
     if (updateRes.error || ingresoRes.error) {
-        alert("Hubo un error al procesar la venta.");
+        alert("Error al procesar venta.");
     } else {
-        alert(`¡Venta procesada con éxito!\nCobrar: $${totalVenta.toFixed(2)}`);
+        alert(`¡Venta procesada!\nCobrar: $${totalVenta.toFixed(2)}`);
         document.getElementById('selectProductoVenta').value = '';
         document.getElementById('cantidadVenta').value = '1';
         document.getElementById('buscadorVenta').value = ''; 
@@ -235,92 +270,74 @@ async function registrarVenta() {
     }
 }
 
-// ================= CONFIGURAR LOS FILTROS Y EL NUEVO BUSCADOR DE VENTAS =================
 function configurarBuscadores() {
-    const buscadorInv = document.getElementById('buscador');
-    const filtroCat = document.getElementById('filtroCategoria');
-    const buscadorVenta = document.getElementById('buscadorVenta');
-
-    // Lógica para el buscador de inventario habitual
-    const procesarFiltrosInventario = () => {
-        const texto = buscadorInv.value.toLowerCase();
-        const catSeleccionada = filtroCat.value;
-
-        const filtered = todosLosProductos.filter(prod => {
-            const cumpleNombre = prod.nombre.toLowerCase().includes(texto);
-            const cumpleCategoria = catSeleccionada === "" || prod.categoria === catSeleccionada;
-            return cumpleNombre && cumpleCategoria;
-        });
-        renderizarTabla(filtered);
-    };
-
-    // Lógica para filtrar y actualizar el menú de cobro
-    const procesarBuscadorVenta = () => {
-        const texto = buscadorVenta.value.toLowerCase();
-        
-        // Filtrar productos por nombre
-        const filtrados = todosLosProductos.filter(p => p.nombre.toLowerCase().includes(texto));
-        
-        // Volver a pintar el select con los productos filtrados
-        actualizarSelectVentas(filtrados);
-
-        // Si hay resultados, autoseleccionar el primero para agilizar la venta
-        const select = document.getElementById('selectProductoVenta');
-        if (filtrados.length > 0 && texto !== "") {
-            select.value = filtrados[0].id;
-        }
-    };
-
-    buscadorInv.addEventListener('input', procesarFiltrosInventario);
-    filtroCat.addEventListener('change', procesarFiltrosInventario);
-    buscadorVenta.addEventListener('input', procesarBuscadorVenta);
+    document.getElementById('buscador').addEventListener('input', procesarFiltrosEfectuados);
+    document.getElementById('buscadorVenta').addEventListener('input', procesarFiltrosEfectuados);
 }
 
-// ================= MOSTRAR HISTORIAL DETALLADO DE MOVIMIENTOS =================
+// ================= MOSTRAR HISTORIAL FILTRADO POR MES SELECCIONADO =================
 async function cargarHistorial() {
     const tbody = document.getElementById('tablaHistorial');
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Cargando movimientos...</td></tr>`;
+    const mesSeleccionado = document.getElementById('filtroMesHistorial').value;
+    
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Buscando movimientos...</td></tr>`;
 
-    // Obtener los últimos 20 ingresos y egresos
-    const { data: listaIngresos } = await supabaseClient.from('ingresos').select('*').order('created_at', { ascending: false }).limit(20);
-    const { data: listaEgresos } = await supabaseClient.from('egresos').select('*').order('created_at', { ascending: false }).limit(20);
+    let consultaIngresos = supabaseClient.from('ingresos').select('*');
+    let consultaEgresos = supabaseClient.from('egresos').select('*');
+
+    // Si elige un mes específico (ej: "01" para enero)
+    if (mesSeleccionado !== "ACTUAL") {
+        const anioActual = new Date().getFullYear();
+        const fechaInicio = `${anioActual}-${mesSeleccionado}-01`;
+        
+        // Calcular último día del mes de forma segura
+        const ultimoDia = new Date(anioActual, parseInt(mesSeleccionado), 0).getDate();
+        const fechaFin = `${anioActual}-${mesSeleccionado}-${ultimoDia}`;
+
+        consultaIngresos = consultaIngresos.gte('fecha', fechaInicio).lte('fecha', fechaFin);
+        consultaEgresos = consultaEgresos.gte('fecha', fechaInicio).lte('fecha', fechaFin);
+    } else {
+        // Por defecto si es el mes en curso, muestra los últimos 30 globales
+        consultaIngresos = consultaIngresos.order('created_at', { ascending: false }).limit(30);
+        consultaEgresos = consultaEgresos.order('created_at', { ascending: false }).limit(30);
+    }
+
+    const { data: listaIngresos } = await consultaIngresos;
+    const { data: listaEgresos } = await consultaEgresos;
 
     let movimientosUnificados = [];
 
-    // Formatear ingresos (Ventas)
     if (listaIngresos) {
         listaIngresos.forEach(i => {
             movimientosUnificados.push({
                 fechaRaw: new Date(i.created_at),
                 fecha: new Date(i.created_at).toLocaleString('es-MX'),
-                tipo: '<span class="badge bg-success"><i class="bi bi-arrow-up-right me-1"></i>Venta (Ingreso)</span>',
+                tipo: '<span class="badge bg-success"><i class="bi bi-arrow-up-right me-1"></i>Venta</span>',
                 producto: i.producto_nombre,
-                cantidad: `${i.cantidad} pzas`,
+                amount: i.cantidad,
                 total: `+$${parseFloat(i.total).toFixed(2)}`
             });
         });
     }
 
-    // Formatear egresos (Compras/Surtido)
     if (listaEgresos) {
         listaEgresos.forEach(e => {
             movimientosUnificados.push({
                 fechaRaw: new Date(e.created_at),
                 fecha: new Date(e.created_at).toLocaleString('es-MX'),
-                tipo: '<span class="badge bg-info text-dark"><i class="bi bi-truck me-1"></i>Surtido (Egreso)</span>',
+                tipo: '<span class="badge bg-info text-dark"><i class="bi bi-truck me-1"></i>Surtido</span>',
                 producto: e.producto_nombre,
-                cantidad: `${e.cantidad} pzas`,
+                amount: e.amount || e.cantidad,
                 total: `-$${parseFloat(e.total).toFixed(2)}`
             });
         });
     }
 
-    // Ordenar cronológicamente para ver lo más nuevo primero
     movimientosUnificados.sort((a, b) => b.fechaRaw - a.fechaRaw);
 
     tbody.innerHTML = '';
     if (movimientosUnificados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No se registran movimientos recientes hoy</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay movimientos registrados en este período</td></tr>`;
         return;
     }
 
@@ -330,14 +347,14 @@ async function cargarHistorial() {
                 <td><small class="text-muted">${mov.fecha}</small></td>
                 <td>${mov.tipo}</td>
                 <td><b>${mov.producto}</b></td>
-                <td>${mov.cantidad}</td>
+                <td>${mov.amount} pzas</td>
                 <td class="fw-bold">${mov.total}</td>
             </tr>
         `;
     });
 }
 
-// ================= CARGAR FINANZAS Y PROCESAR TARJETAS/GRÁFICAS =================
+// ================= CARGAR FINANZAS =================
 async function cargarFinanzas() {
     const hoy = new Date().toISOString().split('T')[0];
     const primerDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
@@ -394,7 +411,6 @@ function actualizarTarjetasReporte(listaProductos) {
     document.getElementById('productosAlerta').innerText = alertas;
 }
 
-// ================= INICIALIZAR GRAFICA DESDE CERO =================
 function inicializarGrafica() {
     const ctx = document.getElementById('graficaVentas').getContext('2d');
     graficaInstancia = new Chart(ctx, {
